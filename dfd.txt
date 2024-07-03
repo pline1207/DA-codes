@@ -1,1 +1,17 @@
-rkskekfkakqktkdkwkckzkxkvkkkkkkkrkskekfkakqktkkdkwkckkkxkkf
+
+v, f = read_vtk("C:/Users/pline1207/Desktop/Bunny.vtk")
+fv = {'vertices': v, 'faces': f }
+
+
+volume, x, y, z = VOXELISE(100, 100, 100, fv, 'xyz')
+print(volume[50,64,59])
+#print(volume[50,80,50])
+cProfile.run( "VOXELISE(100, 100, 100, fv, 'xyz')" )
+
+for i in range(100):
+    count = 0
+    for j in range(100):
+        for k in range(100):
+            if volume[i,j,k] == True:
+                count += 1
+    print(count)
