@@ -1,0 +1,70 @@
+예시 코드의 DBSCAN데 대한 내용이다. 
+모델이 있다고 하자. 그런데 만약 csv의 데이터 중에서 nominal 하거나 ordinal한 데이터가 있다고 가정하자. 그래서 각각의 데이터를 원핫 인코딩을 한 이후에, 가중치를 주는 방식의 코드를 만들고자 한다면 어떻게 하면 될까
+
+에 대한 답변은 다음과 같다.
+import pandas as pd
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import OrdinalEncoder
+from sklearn.cluster import DBSCAN
+from sklearn.metrics.pairwise import euclidean_distances
+import numpy as np
+
+# 예시 CSV 파일 로드 (예시: nominal과 ordinal 데이터 포함)
+data = {
+    'color': ['red', 'blue', 'green', 'blue', 'red'],
+    'size': ['small', 'medium', 'large', 'medium', 'small'],
+    'rating': ['low', 'medium', 'high', 'low', 'medium'],
+    'value': [1, 2, 3, 4, 5]
+}
+
+df = pd.DataFrame(data)
+
+# 1. Nominal 데이터에 대한 원핫 인코딩 (예: color, size)
+nominal_columns = ['color', 'size']
+encoder_nominal = OneHotEncoder(sparse=False)
+encoded_nominal = encoder_nominal.fit_transform(df[nominal_columns])
+
+# 2. Ordinal 데이터에 대한 인코딩 (예: rating)
+ordinal_columns = ['rating']
+encoder_ordinal = OrdinalEncoder(categories=[['low', 'medium', 'high']])
+encoded_ordinal = encoder_ordinal.fit_transform(df[ordinal_columns])
+
+# 3. 가중치 설정: 여기서는 각 feature의 가중치를 1로 설정
+# 필요에 따라 각 feature에 대해 가중치를 달리 설정할 수 있음.
+weight_color = 1.0
+weight_size = 1.0
+weight_rating = 2.0  # 예를 들어, rating에 더 큰 가중치를 주는 경우
+weight_value = 1.0
+
+# 4. 원핫 인코딩된 데이터와 ordinal 데이터 결합
+X_nominal = np.hstack([encoded_nominal])  # Nominal features (원핫 인코딩된 데이터)
+X_ordinal = encoded_ordinal  # Ordinal feature (정수로 변환된 데이터)
+
+# 데이터 결합 (원핫 인코딩된 nominal 데이터와 ordinal 데이터, 원본 value 결합)
+X = np.hstack([X_nominal, X_ordinal, df[['value']].values])
+
+# 5. 가중치 적용: 데이터에 가중치를 반영하여 새로운 벡터를 만들기
+# 이 예시에서는 각 feature의 가중치를 곱해서 새로운 데이터로 변환
+X_weighted = np.zeros_like(X, dtype=float)
+
+# 가중치 적용
+X_weighted[:, :encoded_nominal.shape[1]] = X[:, :encoded_nominal.shape[1]] * weight_color  # color 관련 가중치
+X_weighted[:, encoded_nominal.shape[1]:encoded_nominal.shape[1] + encoded_ordinal.shape[1]] = X[:, encoded_nominal.shape[1]:encoded_nominal.shape[1] + encoded_ordinal.shape[1]] * weight_rating  # rating 관련 가중치
+X_weighted[:, -1] = X[:, -1] * weight_value  # value 관련 가중치
+
+# 6. DBSCAN 모델 학습 및 예측
+model = DBSCAN(
+    eps=0.5,
+    min_samples=2,
+    metric='euclidean',
+    algorithm='auto',
+    leaf_size=30,
+    n_jobs=-1
+)
+
+labels = model.fit_predict(X_weighted)
+
+# 7. 결과 출력
+df['cluster'] = labels
+print(df)
+
