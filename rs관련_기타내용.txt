@@ -1,0 +1,47 @@
+name,item1,item2,item3
+Alice,5,4,
+Bob,3,2,5
+Charlie,4,3,4
+
+#예시 코드
+import pandas as pd
+from sklearn.neighbors import NearestNeighbors
+import numpy as np
+
+# 1. 데이터 로드
+df = pd.read_csv('your_data.csv')
+
+# 2. 데이터를 사용자-아이템 평점 매트릭스로 변환
+ratings_matrix = df.drop('name', axis=1).T  # transpose 해서 아이템이 행으로, 사용자 이름이 열로
+ratings_matrix = ratings_matrix.fillna(0)  # 결측치는 0으로 채움 (혹은 평균값 등으로 채울 수 있음)
+
+# 3. KNN 모델 정의 (아이템 간 유사도 계산)
+knn = NearestNeighbors(metric='cosine', algorithm='brute', n_neighbors=3)
+knn.fit(ratings_matrix.values)
+
+# 4. 특정 아이템(예: item3)에 대한 평가 예측
+item_to_predict = 'item3'
+
+# 5. item3와 유사한 아이템 찾기
+item_idx = ratings_matrix.index.get_loc(item_to_predict)  # 아이템의 인덱스를 찾기
+distances, indices = knn.kneighbors(ratings_matrix.iloc[item_idx].values.reshape(1, -1), n_neighbors=3)
+
+# 6. 유사한 아이템들의 평점을 사용하여 예측된 평점 계산
+# 유사한 아이템들의 평가 값을 추출
+similar_items = ratings_matrix.iloc[indices.flatten()]
+
+# 비어있는 평가를 예측할 사용자 이름 추출
+missing_ratings = df[df[item_to_predict].isna()]
+
+for user in missing_ratings['name']:
+    # 해당 사용자가 'item3'에 대한 평가가 없으면, 유사한 아이템들의 평점의 평균을 사용하여 예측
+    similar_ratings = similar_items[user].values
+    predicted_rating = np.mean(similar_ratings)  # 평균 평점
+    df.loc[df['name'] == user, item_to_predict] = predicted_rating
+
+# 결과 출력
+print("Updated DataFrame with predicted ratings:")
+print(df)
+
+# 결과를 CSV로 저장
+df.to_csv('predicted_ratings.csv', index=False)
